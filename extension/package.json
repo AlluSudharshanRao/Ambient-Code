@@ -1,0 +1,55 @@
+{
+  "name": "ambient-code",
+  "displayName": "Ambient Code",
+  "description": "Watches, remembers, and reasons about your code the way a senior engineer would.",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Ambient Code",
+      "properties": {
+        "ambientCode.dbPath": {
+          "type": "string",
+          "default": "",
+          "description": "Override the path for the NDJSON events log. Defaults to ~/.ambient-code/events.ndjson"
+        },
+        "ambientCode.debounceMs": {
+          "type": "number",
+          "default": 2000,
+          "description": "Milliseconds of inactivity before a file change event is emitted."
+        },
+        "ambientCode.flushIntervalMs": {
+          "type": "number",
+          "default": 5000,
+          "description": "Milliseconds between event queue flushes to the NDJSON event log."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "dependencies": {
+    "diff": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/diff": "^5.2.1",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  }
+}

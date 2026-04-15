@@ -1,0 +1,25 @@
+# ----- Node / VS Code extension -----
+extension/node_modules/
+extension/out/
+extension/*.vsix
+
+# ----- Python context engine (Layer 2 — future) -----
+context-engine/.venv/
+context-engine/__pycache__/
+context-engine/**/__pycache__/
+context-engine/**/*.pyc
+context-engine/.pytest_cache/
+context-engine/dist/
+context-engine/*.egg-info/
+
+# ----- Runtime data -----
+# The events log and SQLite DB are local machine state, not source
+**/.ambient-code/
+
+# ----- OS / editor -----
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/settings.json
+.vscode/launch.json
