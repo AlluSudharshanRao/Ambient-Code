@@ -28,10 +28,10 @@ Query API
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ambient.db.store import Store
-from ambient.models import CodeEvent, EventType, FileChangeMetadata
+from ambient.models import CodeEvent, EventType
 
 logger = logging.getLogger(__name__)
 
@@ -156,5 +156,5 @@ class VelocityTracker:
 
 def _utc_date(timestamp_ms: int) -> str:
     """Convert a Unix millisecond timestamp to an ISO-8601 date string (UTC)."""
-    dt = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
+    dt = datetime.fromtimestamp(timestamp_ms / 1000, tz=UTC)
     return dt.strftime("%Y-%m-%d")

@@ -52,7 +52,6 @@ from ambient.models import CodeEvent, EventType
 from ambient.tailer import Tailer, default_cursor_path, default_log_path
 from ambient.velocity.tracker import VelocityTracker
 
-
 # ---------------------------------------------------------------------------
 # Logging setup
 # ---------------------------------------------------------------------------

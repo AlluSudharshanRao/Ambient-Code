@@ -13,18 +13,17 @@ use inside Python code via ``model_config``.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # ---------------------------------------------------------------------------
 # Enumerations
 # ---------------------------------------------------------------------------
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     """Discriminated union of all event types in the NDJSON log.
 
     String values must remain stable — they form the Layer 1 ↔ Layer 2
@@ -112,9 +111,8 @@ class CodeEvent(BaseModel):
 
     def as_file_change_metadata(self) -> FileChangeMetadata | None:
         """Return typed metadata if this is a file_change or file_save event."""
-        if self.event_type in (EventType.FILE_CHANGE, EventType.FILE_SAVE):
-            if self.metadata:
-                return FileChangeMetadata.model_validate(self.metadata)
+        if self.event_type in (EventType.FILE_CHANGE, EventType.FILE_SAVE) and self.metadata:
+            return FileChangeMetadata.model_validate(self.metadata)
         return None
 
     def as_cursor_move_metadata(self) -> CursorMoveMetadata | None:
