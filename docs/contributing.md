@@ -92,6 +92,36 @@ python -m ambient.main
 
 Set `AMBIENT_LOG_LEVEL=DEBUG` for verbose output.
 
+### Running the test suite
+
+```bash
+cd context-engine
+pytest tests/ -v
+```
+
+All 120 tests should pass in under 5 seconds. Tests use `tmp_path` fixtures — they write no files outside the system temp directory and require no VS Code or running extension.
+
+**Test modules:**
+
+| File | What it covers |
+|---|---|
+| `tests/test_models.py` | Pydantic parsing, camelCase aliases, metadata accessors, enum validation |
+| `tests/test_tailer.py` | Byte-offset cursor, commit, reset, crash-safe at-least-once delivery, malformed lines |
+| `tests/test_store.py` | Schema creation, WAL mode, events CRUD, symbol upsert isolation, velocity accumulation |
+| `tests/test_symbol_index.py` | Python / TypeScript / JavaScript symbol extraction, line numbers, signatures, edge cases |
+| `tests/test_velocity.py` | `record()` filtering, `hot_files` ordering, `file_trend` chronology, UTC date helper |
+| `tests/test_integration.py` | Full pipeline — NDJSON → `ContextEngine` → SQLite; incremental batches; crash recovery |
+
+**Running a single module or test:**
+
+```bash
+# One file
+pytest tests/test_tailer.py -v
+
+# One specific test
+pytest tests/test_integration.py::TestCrashSafety::test_uncommitted_batch_redelivered -v
+```
+
 ### Smoke test
 
 ```bash
@@ -99,7 +129,7 @@ cd context-engine
 python smoke_test.py
 ```
 
-All checks should pass. This test runs the full pipeline end-to-end using a temporary directory — no VS Code or running extension needed.
+The smoke test is a quick manual sanity check. For CI and regression, use `pytest` instead.
 
 ### Linting
 
@@ -117,7 +147,7 @@ Ruff is configured in `pyproject.toml`.
    - Provide a `language_factory` callable returning a `tree_sitter.Language`
    - Write query strings using the `@<kind>.name` / `@<kind>.def` capture convention
 4. Add the language identifier to `docs/layer2.md` in the supported languages table
-5. Add a fixture file to `context-engine/tests/fixtures/` and extend the smoke test
+5. Add test cases for the new language in `tests/test_symbol_index.py`
 
 ### Adding a new query to an existing language
 
@@ -125,7 +155,7 @@ Ruff is configured in `pyproject.toml`.
 2. Find the `_LangConfig` for your language in `_make_language_registry()`
 3. Append a new query string to its `queries` list
 4. Use the `@<kind>.name` / `@<kind>.def` naming convention for captures
-5. Run `python smoke_test.py` to verify nothing is broken
+5. Add a test case to `tests/test_symbol_index.py` and run `pytest tests/test_symbol_index.py -v`
 
 ### Adding a new database table or query
 
@@ -165,9 +195,11 @@ Scopes: `layer1`, `layer2`, `layer3`, `queue`, `tailer`, `store`, `indexer`, `ve
 - [ ] New event types are documented in `docs/layer1.md` with an example payload
 
 **Layer 2 (Python)**
-- [ ] `ruff check ambient/` passes
-- [ ] `python smoke_test.py` passes
+- [ ] `ruff check ambient/` passes with zero errors
+- [ ] `pytest tests/ -v` — all 120 tests (or more) pass
+- [ ] `python smoke_test.py` still passes
 - [ ] New public methods include docstrings
+- [ ] New behaviour is covered by a test in the appropriate `tests/test_*.py` module
 - [ ] New languages / queries are documented in `docs/layer2.md`
 - [ ] New environment variables are documented in `docs/layer2.md` and `docs/README.md`
 

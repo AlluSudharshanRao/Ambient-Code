@@ -52,6 +52,23 @@ All configuration is via environment variables:
 | `AMBIENT_LOG_LEVEL` | `INFO` | Logging verbosity |
 | `AMBIENT_RESET_CURSOR` | unset | Set to `1` to replay entire log |
 
+## Testing
+
+```bash
+pytest tests/ -v
+```
+
+120 unit and integration tests — all isolated, no VS Code needed, runs in under 5 seconds.
+
+| Module | Coverage |
+|---|---|
+| `test_models.py` | Pydantic parsing, aliases, metadata accessors |
+| `test_tailer.py` | Byte-offset cursor, crash-safe redelivery |
+| `test_store.py` | Schema, events/symbols/velocity CRUD |
+| `test_symbol_index.py` | Python / TypeScript / JavaScript extraction |
+| `test_velocity.py` | Velocity recording, hot-file queries |
+| `test_integration.py` | Full NDJSON → SQLite pipeline |
+
 ## Architecture
 
-See [docs/layer2.md](../docs/layer2.md) for the full component breakdown, SQLite schema, and data flow diagram.
+See [docs/layer2.md](../docs/layer2.md) for the full component breakdown, SQLite schema, data flow diagram, and detailed test scenarios.

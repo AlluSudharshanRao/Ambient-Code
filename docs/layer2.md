@@ -230,6 +230,43 @@ sqlite3 "$env:USERPROFILE\.ambient-code\context.db" \
   "SELECT kind, name, start_line, signature FROM symbols WHERE file_path LIKE '%auth.ts' ORDER BY start_line;"
 ```
 
+## Testing
+
+### Running the suite
+
+```bash
+cd context-engine
+pytest tests/ -v
+```
+
+All **120 tests** pass in under 5 seconds. No VS Code, no running extension, and no network access required — every test is fully isolated via `pytest`'s `tmp_path` fixture.
+
+### Test structure
+
+```
+context-engine/tests/
+├── conftest.py             # Shared fixtures: Store, CodeEvent factories, NDJSON helpers
+├── test_models.py          # Pydantic parsing, camelCase aliases, metadata accessors
+├── test_tailer.py          # Byte-offset cursor, commit, crash-safe redelivery, malformed lines
+├── test_store.py           # Schema, events CRUD, symbol upsert isolation, velocity accumulation
+├── test_symbol_index.py    # Python / TypeScript / JavaScript extraction + edge cases
+├── test_velocity.py        # VelocityTracker record/hot_files/file_trend + UTC date helper
+└── test_integration.py     # Full pipeline: NDJSON → ContextEngine → SQLite
+```
+
+### Key integration scenarios tested
+
+| Scenario | Test |
+|---|---|
+| `file_save` populates all three tables | `TestBasicPipeline::test_file_save_populates_all_three_tables` |
+| `cursor_move` and `git_event` land in events only | `test_cursor_move_stored_in_events_only`, `test_git_event_stored_in_events_only` |
+| Symbols are updated on re-save | `TestIncrementalProcessing::test_symbols_updated_on_re_save` |
+| Velocity accumulates across batches | `TestIncrementalProcessing::test_velocity_accumulates_across_batches` |
+| Crash (no commit) → events re-delivered on restart | `TestCrashSafety::test_uncommitted_batch_redelivered` |
+| Empty or missing log returns an empty batch | `TestEmptyLog::test_missing_log_returns_empty_batch` |
+
+---
+
 ## Known Limitations
 
 | Limitation | Detail |
