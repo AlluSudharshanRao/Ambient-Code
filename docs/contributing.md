@@ -112,6 +112,8 @@ All 120 tests should pass in under 5 seconds. Tests use `tmp_path` fixtures — 
 | `tests/test_velocity.py` | `record()` filtering, `hot_files` ordering, `file_trend` chronology, UTC date helper |
 | `tests/test_integration.py` | Full pipeline — NDJSON → `ContextEngine` → SQLite; incremental batches; crash recovery |
 
+For a full description of every individual test, see **[docs/tests.md](tests.md)**.
+
 **Running a single module or test:**
 
 ```bash

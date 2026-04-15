@@ -265,6 +265,8 @@ context-engine/tests/
 | Crash (no commit) → events re-delivered on restart | `TestCrashSafety::test_uncommitted_batch_redelivered` |
 | Empty or missing log returns an empty batch | `TestEmptyLog::test_missing_log_returns_empty_batch` |
 
+For a full description of every one of the 120 tests, see **[docs/tests.md](tests.md)**.
+
 ---
 
 ## Known Limitations
