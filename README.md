@@ -1,30 +1,127 @@
 # Ambient Code
 
-> A developer tooling system that watches, remembers, and reasons about your codebase the way a senior engineer would — not at commit time, but continuously, as you work.
+> A developer tooling system that watches, remembers, and reasons about your codebase the way a senior engineer would — continuously, as you work.
 
-## What is this?
+---
 
-Ambient Code is a three-layer system:
+## What Is Ambient Code?
 
-| Layer | Technology | Status |
-|---|---|---|
-| **Layer 1 — Collection** | VS Code Extension (TypeScript) | ✅ Built |
-| **Layer 2 — Context Engine** | Python background process (tree-sitter, SQLite) | ✅ Built |
-| **Layer 3 — Insight Engine** | LLM reasoning + pattern triggers | 🔜 Planned |
+Traditional static analysis tools run on demand and have no memory of how code evolved.  
+Ambient Code is different: it **observes every edit, save, and git action in real time**, builds a persistent model of your codebase, and surfaces LLM-generated insights exactly when they become relevant — not when you ask for them.
 
-**Layer 1** is a VS Code extension that silently watches your editing session — file changes, saves, cursor moves, git operations — and streams structured events to a local append-only log (`~/.ambient-code/events.ndjson`). No analysis happens in the extension. It is purely a sensor.
+---
 
-**Layer 2** tails that log and builds a living model of the codebase: a symbol index (via tree-sitter), a daily change velocity tracker, and a queryable SQLite store (`~/.ambient-code/context.db`). It runs as a Python background process with graceful shutdown and crash-safe event delivery.
+## High-Level Architecture
 
-**Layer 3** (planned) will reason over that model using an LLM and surface findings as inline hints, digests, or chat notifications.
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        Developer's Machine                              │
+│                                                                         │
+│  ┌────────────────────────────────┐                                     │
+│  │   VS Code Editor               │                                     │
+│  │   ┌──────────────────────────┐ │                                     │
+│  │   │  Layer 1 — Collection    │ │  ← TypeScript Extension             │
+│  │   │  Sensors (no analysis)   │ │                                     │
+│  │   └──────────┬───────────────┘ │                                     │
+│  │              │  events.ndjson  │                                     │
+│  │   ┌──────────▼───────────────┐ │                                     │
+│  │   │  Layer 3 findings watcher│ │  ← surfaces toast/output            │
+│  │   └──────────────────────────┘ │                                     │
+│  └────────────────────────────────┘                                     │
+│              │ events.ndjson (append-only file)                         │
+│              ▼                                                           │
+│  ┌───────────────────────────────┐                                      │
+│  │  Layer 2 — Context Engine     │  ← Python background process         │
+│  │  tree-sitter · SQLite · WAL   │                                      │
+│  └──────────────┬────────────────┘                                      │
+│                 │ context.db (SQLite)                                   │
+│                 ▼                                                        │
+│  ┌───────────────────────────────┐                                      │
+│  │  Layer 3 — Insight Engine     │  ← Python + OpenAI API               │
+│  │  Triggers · LLM · Cooldown    │                                      │
+│  └──────────────┬────────────────┘                                      │
+│                 │ findings.ndjson (append-only file)                    │
+│                 └──────────────────────────────────────►  VS Code       │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## System Layers
+
+| Layer | Role | Technology | Status |
+|---|---|---|---|
+| **1 — Collection** | Silent sensor: captures edits, saves, cursor moves, git actions | TypeScript · VS Code API · diff | ✅ Complete |
+| **2 — Context Engine** | Builds persistent codebase model: symbol index, velocity, event log | Python · tree-sitter · SQLite · Pydantic | ✅ Complete |
+| **3 — Insight Engine** | Detects patterns, calls LLM, surfaces findings to VS Code | Python · OpenAI API · NDJSON | ✅ Complete |
+
+---
+
+## Data Flow
+
+```
+┌──────────────┐   file_change / file_save    ┌──────────────────┐
+│  VS Code     │   cursor_move / git_event    │  events.ndjson   │
+│  Extension   │ ─────────────────────────►  │  (append-only)   │
+│  (Layer 1)   │                              └────────┬─────────┘
+└──────────────┘                                       │ tail + cursor
+                                                       ▼
+                                             ┌──────────────────┐
+                                             │  Context Engine  │
+                                             │  (Layer 2)       │
+                                             │                  │
+                                             │  SymbolIndexer   │
+                                             │  VelocityTracker │
+                                             │  Store (SQLite)  │
+                                             └────────┬─────────┘
+                                                      │ READ-ONLY
+                                                      ▼
+                                             ┌──────────────────┐
+                                             │  Insight Engine  │
+                                             │  (Layer 3)       │
+                                             │                  │
+                                             │  Triggers        │
+                                             │  LLM (OpenAI)    │
+                                             │  Writer          │
+                                             └────────┬─────────┘
+                                                      │ findings.ndjson
+                                                      ▼
+                                             ┌──────────────────┐
+                                             │  FindingsWatcher │
+                                             │  (Layer 1)       │
+                                             │                  │
+                                             │  Toast notif.    │
+                                             │  Output channel  │
+                                             └──────────────────┘
+```
+
+---
+
+## File Contracts
+
+All three layers communicate **exclusively through local files**. No sockets, no shared memory, no APIs between layers.
+
+| File | Written by | Read by | Format |
+|---|---|---|---|
+| `~/.ambient-code/events.ndjson` | Layer 1 | Layer 2 | NDJSON (append-only) |
+| `~/.ambient-code/cursor` | Layer 2 | Layer 2 | Plain text (byte offset) |
+| `~/.ambient-code/context.db` | Layer 2 | Layer 3 | SQLite (WAL mode) |
+| `~/.ambient-code/findings.ndjson` | Layer 3 | Layer 1 | NDJSON (append-only) |
 
 ---
 
 ## Quick Start
 
-### Layer 1 — VS Code Extension
+### Prerequisites
 
-**Prerequisites:** Node.js ≥ 18, VS Code ≥ 1.85
+| Tool | Version | Required by |
+|---|---|---|
+| VS Code | ≥ 1.85 | Layer 1 |
+| Node.js | ≥ 18 | Layer 1 build |
+| Python | ≥ 3.11 | Layer 2 & 3 |
+| OpenAI API key | — | Layer 3 |
+
+### Step 1 — Layer 1: VS Code Extension
 
 ```bash
 cd extension
@@ -33,34 +130,37 @@ npm run compile
 # Press F5 in VS Code to launch the Extension Development Host
 ```
 
-Once active, the status bar shows:
+The status bar will show:
 ```
 Ambient Code: collecting → ~/.ambient-code/events.ndjson
 ```
 
-### Layer 2 — Context Engine
-
-**Prerequisites:** Python ≥ 3.11
+### Step 2 — Layer 2: Context Engine
 
 ```bash
 cd context-engine
 python -m venv .venv
-.venv\Scripts\activate      # Windows
-# source .venv/bin/activate # macOS / Linux
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # macOS / Linux
 pip install -e ".[dev]"
 ambient
 ```
 
-The engine starts tailing `~/.ambient-code/events.ndjson` and writing to `~/.ambient-code/context.db`. Stop with `Ctrl+C`.
+Layer 2 starts tailing `events.ndjson` and writing to `context.db`.
 
----
+### Step 3 — Layer 3: Insight Engine
 
-## Documentation
+```bash
+cd insight-engine
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e ".[dev]"
+set OPENAI_API_KEY=sk-...       # Windows
+# export OPENAI_API_KEY=sk-...  # macOS / Linux
+ambient-insight
+```
 
-- [Architecture overview](docs/README.md)
-- [Layer 1 — Collection layer deep-dive](docs/layer1.md)
-- [Layer 2 — Context engine deep-dive](docs/layer2.md)
-- [Contributing guide](docs/contributing.md)
+Layer 3 polls `context.db` every 60 seconds, calls OpenAI when a pattern fires, and writes findings to `findings.ndjson`. VS Code surfaces them automatically.
 
 ---
 
@@ -68,35 +168,93 @@ The engine starts tailing `~/.ambient-code/events.ndjson` and writing to `~/.amb
 
 ```
 ambient-code/
-├── extension/              # Layer 1 — VS Code extension (TypeScript)
-│   ├── src/
-│   │   ├── extension.ts
-│   │   ├── types.ts
-│   │   ├── collectors/     # FileWatcher, CursorTracker, EditStream, GitWatcher
-│   │   └── queue/          # EventQueue (NDJSON writer)
-│   └── package.json
 │
-├── context-engine/         # Layer 2 — Python context engine
+├── extension/                         # Layer 1 — VS Code extension
+│   ├── src/
+│   │   ├── extension.ts               # Activation entry point
+│   │   ├── types.ts                   # Shared event types
+│   │   ├── collectors/
+│   │   │   ├── fileWatcher.ts         # Debounced edit collector
+│   │   │   ├── cursorTracker.ts       # File-switch collector
+│   │   │   ├── editStream.ts          # Save-event collector
+│   │   │   └── gitWatcher.ts          # Git HEAD change collector
+│   │   ├── findings/
+│   │   │   └── findingsWatcher.ts     # Layer 3 findings → VS Code UI
+│   │   └── queue/
+│   │       └── eventQueue.ts          # NDJSON append-only writer
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── context-engine/                    # Layer 2 — Python context engine
 │   ├── ambient/
-│   │   ├── models.py       # Pydantic event models
-│   │   ├── tailer.py       # NDJSON tailer + byte-offset cursor
-│   │   ├── main.py         # Orchestration loop + graceful shutdown
-│   │   ├── db/store.py     # SQLite schema + queries
-│   │   ├── indexer/        # tree-sitter symbol extractor
-│   │   └── velocity/       # Change velocity tracker
+│   │   ├── models.py                  # Pydantic v2 event models
+│   │   ├── tailer.py                  # NDJSON tailer + byte-offset cursor
+│   │   ├── main.py                    # Poll loop + graceful shutdown
+│   │   ├── db/store.py                # SQLite DDL + all queries
+│   │   ├── indexer/symbol_index.py    # tree-sitter symbol extractor
+│   │   └── velocity/tracker.py        # Daily churn aggregator
+│   ├── tests/                         # 120 pytest tests
 │   └── pyproject.toml
 │
-├── docs/                   # Architecture and API documentation
-│   ├── README.md           # Architecture overview (this file's sibling)
-│   ├── layer1.md           # Layer 1 deep-dive
-│   ├── layer2.md           # Layer 2 deep-dive
-│   └── contributing.md     # Development guide
+├── insight-engine/                    # Layer 3 — Python insight engine
+│   ├── ambient_insight/
+│   │   ├── models.py                  # Finding Pydantic model
+│   │   ├── reader.py                  # Read-only context.db interface
+│   │   ├── writer.py                  # findings.ndjson writer + cooldown
+│   │   ├── main.py                    # InsightEngine poll loop
+│   │   ├── triggers/                  # Pattern detectors (3 built-in)
+│   │   └── llm/                       # OpenAI client + prompt templates
+│   ├── tests/                         # 115 pytest tests
+│   └── pyproject.toml
 │
-└── .gitignore
+└── docs/
+    ├── README.md                      # Architecture overview (this file's sibling)
+    ├── layer1.md                      # Layer 1 deep-dive
+    ├── layer2.md                      # Layer 2 deep-dive
+    ├── layer3.md                      # Layer 3 deep-dive
+    ├── tests.md                       # Full test-suite reference (235 tests)
+    └── contributing.md                # Development & contribution guide
 ```
+
+---
+
+## Test Coverage
+
+| Layer | Tests | Command |
+|---|---|---|
+| Layer 2 — Context Engine | **120 passing** | `cd context-engine && pytest tests/ -v` |
+| Layer 3 — Insight Engine | **115 passing** | `cd insight-engine && pytest tests/ -v` |
+| Layer 1 — Extension | TypeScript strict mode + ESLint | `cd extension && npx tsc --noEmit && npm run lint` |
+
+---
+
+## Design Principles
+
+| Principle | Meaning |
+|---|---|
+| **Collect dumbly** | Layer 1 is a pure sensor — no analysis, no scoring, no filtering. |
+| **Think lazily** | Reasoning is deferred to later layers, triggered by accumulated patterns only when thresholds are crossed. |
+| **Communicate through files** | Layers are decoupled by well-defined file contracts; each can run on a different machine or process. |
+| **Crash-safe delivery** | Byte-offset cursors are committed only after successful batch persistence. Restarts re-deliver the last batch. |
+| **Fail silently in the IDE** | Collection errors are logged to the extension host output channel, never surfaced as VS Code notifications. |
+| **No remote calls in Layers 1–2** | Only Layer 3 makes outbound network calls (OpenAI). Layers 1 and 2 run entirely offline. |
 
 ---
 
 ## Privacy
 
-All data stays on your machine. The extension writes only to `~/.ambient-code/events.ndjson`. The context engine writes only to `~/.ambient-code/context.db`. Nothing is sent to any remote service.
+- **Layer 1 & 2:** All data stays on your machine. No network calls.
+- **Layer 3:** The only outbound call is to OpenAI. Only code diffs and symbol names are sent — never full file contents, credentials, or personal data. You can audit exactly what is sent in `insight-engine/ambient_insight/llm/prompts.py`.
+
+---
+
+## Documentation
+
+| Document | Description |
+|---|---|
+| [docs/README.md](docs/README.md) | Full architecture reference with component diagrams |
+| [docs/layer1.md](docs/layer1.md) | Layer 1 deep-dive: collectors, event schema, configuration |
+| [docs/layer2.md](docs/layer2.md) | Layer 2 deep-dive: tailer, store, symbol indexer, velocity |
+| [docs/layer3.md](docs/layer3.md) | Layer 3 deep-dive: triggers, LLM pipeline, findings writer |
+| [docs/tests.md](docs/tests.md) | Per-test reference for all 235 tests across Layers 2 & 3 |
+| [docs/contributing.md](docs/contributing.md) | Setup, workflow, conventions, PR checklist |

@@ -3,7 +3,7 @@ extension/node_modules/
 extension/out/
 extension/*.vsix
 
-# ----- Python context engine (Layer 2 — future) -----
+# ----- Python (Layer 2 & Layer 3) -----
 context-engine/.venv/
 context-engine/__pycache__/
 context-engine/**/__pycache__/
@@ -11,6 +11,16 @@ context-engine/**/*.pyc
 context-engine/.pytest_cache/
 context-engine/dist/
 context-engine/*.egg-info/
+context-engine/**/*.egg-info/
+
+insight-engine/.venv/
+insight-engine/__pycache__/
+insight-engine/**/__pycache__/
+insight-engine/**/*.pyc
+insight-engine/.pytest_cache/
+insight-engine/dist/
+insight-engine/*.egg-info/
+insight-engine/**/*.egg-info/
 
 # ----- Runtime data -----
 # The events log and SQLite DB are local machine state, not source

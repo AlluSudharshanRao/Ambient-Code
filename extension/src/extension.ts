@@ -4,8 +4,10 @@ import { FileWatcher } from './collectors/fileWatcher';
 import { CursorTracker } from './collectors/cursorTracker';
 import { EditStream } from './collectors/editStream';
 import { GitWatcher } from './collectors/gitWatcher';
+import { FindingsWatcher } from './findings/findingsWatcher';
 
 let queue: EventQueue | undefined;
+let findingsWatcher: FindingsWatcher | undefined;
 let collectors: vscode.Disposable[] = [];
 
 /**
@@ -37,7 +39,11 @@ export function activate(context: vscode.ExtensionContext): void {
     new GitWatcher(queue, workspaceName),
   ];
 
-  context.subscriptions.push(...collectors, {
+  // Layer 3: watch findings.ndjson for insights from the Insight Engine.
+  findingsWatcher = new FindingsWatcher();
+  findingsWatcher.start();
+
+  context.subscriptions.push(...collectors, findingsWatcher, {
     dispose: () => queue?.dispose(),
   });
 
@@ -57,6 +63,8 @@ export function activate(context: vscode.ExtensionContext): void {
 export function deactivate(): void {
   collectors.forEach((c) => c.dispose());
   collectors = [];
+  findingsWatcher?.dispose();
+  findingsWatcher = undefined;
   queue?.dispose();
   queue = undefined;
 }

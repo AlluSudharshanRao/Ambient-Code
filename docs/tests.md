@@ -1,35 +1,50 @@
-# Test Reference — Ambient Code Context Engine (Layer 2)
+﻿# Test Reference - Ambient Code
 
-> **120 tests · 6 modules · all pass in < 5 seconds**
->
-> Run: `cd context-engine && pytest tests/ -v`
+> **235 tests total (120 Layer 2 + 115 Layer 3) - all pass in < 10 seconds**
+
+- **Layer 2:** `cd context-engine && pytest tests/ -v`
+- **Layer 3:** `cd insight-engine && pytest tests/ -v`
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Test Infrastructure](#test-infrastructure)
-3. [test_models.py — 19 tests](#test_modelspy--19-tests)
-4. [test_tailer.py — 17 tests](#test_tailerpy--17-tests)
-5. [test_store.py — 23 tests](#test_storepy--23-tests)
-6. [test_symbol_index.py — 22 tests](#test_symbol_indexpytest_symbol_indexpy--22-tests)
-7. [test_velocity.py — 16 tests](#test_velocitypy--16-tests)
-8. [test_integration.py — 13 tests](#test_integrationpy--13-tests)
-9. [Coverage Map](#coverage-map)
+### Layer 2 - Context Engine
+
+1. [Overview (Layer 2)](#layer-2-overview)
+2. [Test Infrastructure (Layer 2)](#test-infrastructure)
+3. [test_models.py - 19 tests](#test_modelspy--19-tests)
+4. [test_tailer.py - 17 tests](#test_tailerpy--17-tests)
+5. [test_store.py - 23 tests](#test_storepy--23-tests)
+6. [test_symbol_index.py - 22 tests](#test_symbol_indexpytest_symbol_indexpy--22-tests)
+7. [test_velocity.py - 16 tests](#test_velocitypy--16-tests)
+8. [test_integration.py - 13 tests](#test_integrationpy--13-tests)
+9. [Layer 2 Coverage Map](#layer-2-coverage-map)
+
+### Layer 3 - Insight Engine
+
+10. [Overview (Layer 3)](#layer-3-overview)
+11. [Test Infrastructure (Layer 3)](#layer-3-test-infrastructure)
+12. [test_models.py (L3) - 18 tests](#layer-3-test_modelspy--18-tests)
+13. [test_reader.py - 21 tests](#test_readerpy--21-tests)
+14. [test_triggers.py - 30 tests](#test_triggerspy--30-tests)
+15. [test_writer.py - 14 tests](#test_writerpy--14-tests)
+16. [test_prompts.py - 22 tests](#test_promptspy--22-tests)
+17. [test_main.py - 10 tests](#test_mainpy--10-tests)
+18. [Layer 3 Coverage Map](#layer-3-coverage-map)
 
 ---
 
-## Overview
+## Layer 2 Overview
 
 | Module | Class(es) / Area | Tests |
 |---|---|---|
 | `test_models.py` | `CodeEvent`, `EventType`, metadata accessors, `Symbol` | 19 |
-| `test_tailer.py` | `Tailer` — file reading, cursor, crash safety | 17 |
-| `test_store.py` | `Store` — schema, events, symbols, velocity | 23 |
-| `test_symbol_index.py` | `SymbolIndexer` — Python, TypeScript, JavaScript, edge cases | 22 |
-| `test_velocity.py` | `VelocityTracker` — record, hot_files, file_trend, UTC helper | 16 |
-| `test_integration.py` | Full NDJSON → `ContextEngine` → SQLite pipeline | 13 |
+| `test_tailer.py` | `Tailer` - file reading, cursor, crash safety | 17 |
+| `test_store.py` | `Store` - schema, events, symbols, velocity | 23 |
+| `test_symbol_index.py` | `SymbolIndexer` - Python, TypeScript, JavaScript, edge cases | 22 |
+| `test_velocity.py` | `VelocityTracker` - record, hot_files, file_trend, UTC helper | 16 |
+| `test_integration.py` | Full NDJSON - `ContextEngine` - SQLite pipeline | 13 |
 | **Total** | | **120** |
 
 All tests are isolated: they use pytest's `tmp_path` fixture and write nothing outside the OS temp directory. No VS Code, running extension, or network access is required.
@@ -61,7 +76,7 @@ Shared fixtures and event factories used across all modules.
 
 ---
 
-## `test_models.py` — 19 tests
+## `test_models.py` - 19 tests
 
 **Module under test:** `ambient/models.py`
 
@@ -69,7 +84,7 @@ Tests that all four event types are parsed correctly from JSON, that camelCase a
 
 ---
 
-### Class `TestCodeEventParsing` — 11 tests
+### Class `TestCodeEventParsing` - 11 tests
 
 #### `test_file_save_parses_correctly`
 Parses a complete `file_save` JSON line and asserts all five required fields: `event_type`, `file_path`, `workspace`, `language`, `timestamp`. Also asserts `diff` is not `None`.
@@ -109,7 +124,7 @@ Passes an extra field `unknownField` that is not in the schema. Asserts the even
 
 ---
 
-### Class `TestMetadataAccessors` — 8 tests
+### Class `TestMetadataAccessors` - 8 tests
 
 #### `test_file_save_returns_file_change_metadata`
 Calls `event.as_file_change_metadata()` on a `file_save` event. Asserts it returns a `FileChangeMetadata` instance with `lines_added=4`, `lines_removed=1`, `is_paste=False`.
@@ -137,7 +152,7 @@ Asserts that the JSON key `previousBranch` (camelCase) maps to `meta.previous_br
 
 ---
 
-### Class `TestEventType` — 2 tests
+### Class `TestEventType` - 2 tests
 
 #### `test_string_values_are_stable`
 Asserts the exact string values of all four `EventType` members: `"file_change"`, `"cursor_move"`, `"file_save"`, `"git_event"`. These values are part of the data contract with Layer 1 and must not change.
@@ -147,14 +162,14 @@ Asserts that `EventType.FILE_SAVE` is an instance of `str` (confirming `StrEnum`
 
 ---
 
-### Class `TestSymbol` — 1 test
+### Class `TestSymbol` - 1 test
 
 #### `test_symbol_construction`
 Constructs a `Symbol` model directly with all fields. Asserts `name == "login"` and `kind == "function"`. Confirms the model can be instantiated without going through the indexer.
 
 ---
 
-## `test_tailer.py` — 17 tests
+## `test_tailer.py` - 17 tests
 
 **Module under test:** `ambient/tailer.py`
 
@@ -162,7 +177,7 @@ Tests that the `Tailer` class correctly reads NDJSON events from disk, tracks a 
 
 ---
 
-### Class `TestMissingFile` — 2 tests
+### Class `TestMissingFile` - 2 tests
 
 #### `test_returns_empty_when_file_does_not_exist`
 Creates a `Tailer` pointing at a path that doesn't exist. Asserts `read_new_events()` returns `[]` without raising.
@@ -172,7 +187,7 @@ After calling `read_new_events()` on a missing file, asserts `tailer.offset == 0
 
 ---
 
-### Class `TestBasicReading` — 4 tests
+### Class `TestBasicReading` - 4 tests
 
 #### `test_reads_all_events_from_fresh_file`
 Writes three events (`file_save`, `cursor_move`, `git_event`) to an NDJSON file. Asserts `read_new_events()` returns all three with the correct `event_type` in order.
@@ -188,7 +203,7 @@ Writes a `file_save` event with `workspace="acme"` and `language="go"`. Asserts 
 
 ---
 
-### Class `TestCursorAndCommit` — 6 tests
+### Class `TestCursorAndCommit` - 6 tests
 
 #### `test_offset_not_advanced_before_commit`
 Calls `read_new_events()` but does **not** call `commit()`. Asserts `tailer.offset == 0` (the offset is only advanced after an explicit commit).
@@ -210,14 +225,14 @@ After `read_new_events()` and `commit()`, asserts the cursor file exists on disk
 
 ---
 
-### Class `TestAtLeastOnceDelivery` — 1 test
+### Class `TestAtLeastOnceDelivery` - 1 test
 
 #### `test_redelivers_uncommitted_batch_on_restart`
 Simulates a crash: first `Tailer` reads two events but never commits. A second `Tailer` (same cursor file) reads again and receives the same two events. Asserts the event types match. This verifies the at-least-once delivery guarantee.
 
 ---
 
-### Class `TestReset` — 2 tests
+### Class `TestReset` - 2 tests
 
 #### `test_reset_reprocesses_all_events`
 Reads and commits two events. Calls `tailer.reset()`. Asserts `offset == 0`. Then reads again and asserts both events are returned (full replay from the beginning of the file).
@@ -227,7 +242,7 @@ After committing, the cursor file contains a positive offset. After `reset()`, a
 
 ---
 
-### Class `TestMalformedInput` — 2 tests
+### Class `TestMalformedInput` - 2 tests
 
 #### `test_malformed_json_line_is_skipped`
 Writes a valid NDJSON line, then `{ not valid json }`, then another valid line. Asserts `read_new_events()` returns exactly 2 events (the bad line is silently skipped) and both have `event_type == FILE_SAVE`.
@@ -237,7 +252,7 @@ Writes `\n` + a valid event line + `\n`. Asserts `read_new_events()` returns exa
 
 ---
 
-## `test_store.py` — 23 tests
+## `test_store.py` - 23 tests
 
 **Module under test:** `ambient/db/store.py`
 
@@ -245,10 +260,10 @@ Tests that the SQLite schema is created correctly, that event/symbol/velocity ro
 
 ---
 
-### Class `TestSchemaCreation` — 4 tests
+### Class `TestSchemaCreation` - 4 tests
 
 #### `test_tables_exist_after_init`
-Queries `sqlite_master` after `Store.__init__`. Asserts the three expected tables — `events`, `symbols`, `velocity` — all exist.
+Queries `sqlite_master` after `Store.__init__`. Asserts the three expected tables - `events`, `symbols`, `velocity` - all exist.
 
 #### `test_wal_mode_enabled`
 Queries `PRAGMA journal_mode`. Asserts the result is `"wal"` (Write-Ahead Logging mode for concurrent read safety).
@@ -261,7 +276,7 @@ Creates a `Store` at the same path twice. Asserts no exception is raised (schema
 
 ---
 
-### Class `TestInsertEvent` — 6 tests
+### Class `TestInsertEvent` - 6 tests
 
 #### `test_insert_single_event`
 Inserts one `file_save` event. Asserts `SELECT COUNT(*) FROM events` returns `1`.
@@ -283,7 +298,7 @@ Inserts two events. Asserts their `id` values are `1` and `2` (AUTOINCREMENT wor
 
 ---
 
-### Class `TestBulkInsertEvents` — 3 tests
+### Class `TestBulkInsertEvents` - 3 tests
 
 #### `test_inserts_all_events`
 Bulk-inserts three events. Asserts total row count is `3`.
@@ -296,7 +311,7 @@ Bulk-inserts `file_save`, `cursor_move`, `git_event`. Fetches all `type` values 
 
 ---
 
-### Class `TestUpsertSymbols` — 6 tests
+### Class `TestUpsertSymbols` - 6 tests
 
 #### `test_inserts_symbols`
 Calls `upsert_symbols` with 3 `Symbol` objects. Asserts `symbols` table row count is `3`.
@@ -318,7 +333,7 @@ Calls `get_symbols("/nonexistent.py")` with no prior inserts. Asserts the return
 
 ---
 
-### Class `TestIncrementVelocity` — 4 tests
+### Class `TestIncrementVelocity` - 4 tests
 
 #### `test_creates_row_on_first_call`
 Calls `increment_velocity` for a new `(file_path, date)` pair. Asserts the `velocity` table now has `1` row.
@@ -334,7 +349,7 @@ Calls `increment_velocity` for two different files on the same date. Asserts `2`
 
 ---
 
-### Class `TestGetHotFiles` — 4 tests
+### Class `TestGetHotFiles` - 4 tests
 
 #### `test_returns_files_ordered_by_edits_desc`
 Inserts velocity for `auth.py` (3 edits) and `user.py` (10 edits). Asserts `get_hot_files` returns `user.py` first with `total_edits == 10`.
@@ -350,7 +365,7 @@ Inserts data for `ws` but queries `other-ws`. Asserts `[]` is returned.
 
 ---
 
-### Class `TestGetVelocityForFile` — 2 tests
+### Class `TestGetVelocityForFile` - 2 tests
 
 #### `test_returns_rows_ordered_by_date`
 Inserts velocity rows for dates `2026-04-12`, `2026-04-14`, `2026-04-13` (out of order). Asserts `get_velocity_for_file` returns them in ascending date order.
@@ -360,7 +375,7 @@ Calls `get_velocity_for_file("/nonexistent.py")` with no prior inserts. Asserts 
 
 ---
 
-## `test_symbol_index.py` — 22 tests
+## `test_symbol_index.py` - 22 tests
 
 **Module under test:** `ambient/indexer/symbol_index.py`
 
@@ -370,7 +385,7 @@ Tests that `SymbolIndexer.index_file` correctly extracts named symbols from real
 
 ---
 
-### Class `TestPythonIndexing` — 9 tests
+### Class `TestPythonIndexing` - 9 tests
 
 #### `test_extracts_top_level_functions`
 Source: `def login(...)` + `def logout()`. Asserts both names appear in the result set.
@@ -401,7 +416,7 @@ Source: empty string. Asserts `index_file` returns `[]`.
 
 ---
 
-### Class `TestTypeScriptIndexing` — 7 tests
+### Class `TestTypeScriptIndexing` - 7 tests
 
 #### `test_extracts_function_declaration`
 Source: `function login(username: string, ...): boolean { ... }`. Asserts `"login"` appears in the result names.
@@ -422,11 +437,11 @@ Source: `type UserId = string;`. Asserts a symbol with `name == "UserId"` and `k
 Source: `enum Status { Active, Inactive }`. Asserts a symbol with `name == "Status"` and `kind == "enum"`.
 
 #### `test_multiple_kinds_in_one_file`
-Source contains a function, an interface, a class, and a type alias. Asserts all four `kind` values — `"function"`, `"interface"`, `"class"`, `"type_alias"` — appear in the result set.
+Source contains a function, an interface, a class, and a type alias. Asserts all four `kind` values - `"function"`, `"interface"`, `"class"`, `"type_alias"` - appear in the result set.
 
 ---
 
-### Class `TestJavaScriptIndexing` — 2 tests
+### Class `TestJavaScriptIndexing` - 2 tests
 
 #### `test_extracts_function_declaration`
 Source: `function add(a, b) { return a + b; }`. Asserts `"add"` appears in the result names.
@@ -436,7 +451,7 @@ Source: `class EventBus { emit(e) {} }`. Asserts a symbol with `name == "EventBu
 
 ---
 
-### Class `TestEdgeCases` — 4 tests
+### Class `TestEdgeCases` - 4 tests
 
 #### `test_unsupported_language_returns_empty`
 Calls `index_file` with `language="ruby"` (no grammar registered). Asserts `[]` is returned without raising.
@@ -452,7 +467,7 @@ Calls `index_file` for the same language twice. Asserts `"python"` key exists in
 
 ---
 
-## `test_velocity.py` — 16 tests
+## `test_velocity.py` - 16 tests
 
 **Module under test:** `ambient/velocity/tracker.py`
 
@@ -460,7 +475,7 @@ Tests that `VelocityTracker` correctly filters events by type, accumulates save 
 
 ---
 
-### Class `TestRecord` — 7 tests
+### Class `TestRecord` - 7 tests
 
 #### `test_file_save_increments_velocity`
 Calls `tracker.record(file_save_event)`. Queries `store.get_velocity_for_file`. Asserts `edits == 1`, `lines_added == 5`, `lines_removed == 2`, and the `date` matches the event's UTC timestamp.
@@ -485,7 +500,7 @@ Calls `tracker.record` for `/src/a.py` and `/src/b.py`. Asserts `2` rows exist i
 
 ---
 
-### Class `TestHotFiles` — 4 tests
+### Class `TestHotFiles` - 4 tests
 
 #### `test_returns_files_ordered_by_edit_count`
 Records 2 saves for `/src/a.py` and 7 saves for `/src/b.py`. Asserts `hot_files` returns `/src/b.py` first with `total_edits == 7`.
@@ -501,7 +516,7 @@ Calls `hot_files` after one save. Asserts the return value is a non-empty `list`
 
 ---
 
-### Class `TestFileTrend` — 3 tests
+### Class `TestFileTrend` - 3 tests
 
 #### `test_returns_chronological_rows`
 Directly inserts velocity rows for dates `2026-04-10`, `2026-04-12`, `2026-04-11` (out of order). Asserts `file_trend` returns them in ascending date order.
@@ -514,7 +529,7 @@ After inserting one velocity row, calls `file_trend`. Asserts the return value i
 
 ---
 
-### Class `TestUtcDate` — 2 tests
+### Class `TestUtcDate` - 2 tests
 
 #### `test_returns_iso_date_string`
 Passes the timestamp `1744675200000` (= `2025-04-15 00:00:00 UTC`) to `_utc_date`. Asserts the return value is `"2025-04-15"`.
@@ -524,11 +539,11 @@ Passes the current time to `_utc_date`. Asserts the return value splits into exa
 
 ---
 
-## `test_integration.py` — 13 tests
+## `test_integration.py` - 13 tests
 
 **End-to-end tests for the full Layer 2 pipeline.**
 
-These tests use real files on disk, a real SQLite database, and the full `ContextEngine` orchestration — no mocking. Each test uses the `engine` fixture, which creates a `ContextEngine` with all paths inside `tmp_path` and closes it after the test.
+These tests use real files on disk, a real SQLite database, and the full `ContextEngine` orchestration - no mocking. Each test uses the `engine` fixture, which creates a `ContextEngine` with all paths inside `tmp_path` and closes it after the test.
 
 #### Fixtures in this module
 
@@ -540,7 +555,7 @@ These tests use real files on disk, a real SQLite database, and the full `Contex
 
 ---
 
-### Class `TestBasicPipeline` — 5 tests
+### Class `TestBasicPipeline` - 5 tests
 
 #### `test_file_save_populates_all_three_tables`
 Writes one `file_save` event pointing at `py_source`. Runs one batch. Asserts:
@@ -569,30 +584,30 @@ Writes a `file_save` event pointing at `ts_source`. Runs one batch. Asserts symb
 
 ---
 
-### Class `TestIncrementalProcessing` — 3 tests
+### Class `TestIncrementalProcessing` - 3 tests
 
 #### `test_second_batch_appended_to_events`
 Processes a first batch of 1 event, commits. Appends 2 more events, processes second batch. Asserts total event count is 3 (incremental reads work correctly after a commit).
 
 #### `test_symbols_updated_on_re_save`
-Processes an initial save of `py_source` and records the symbol count. Appends a new function to `py_source`, processes a second save. Asserts the symbol count after the second batch is greater than after the first (symbols are replaced, not accumulated — the new function appears).
+Processes an initial save of `py_source` and records the symbol count. Appends a new function to `py_source`, processes a second save. Asserts the symbol count after the second batch is greater than after the first (symbols are replaced, not accumulated - the new function appears).
 
 #### `test_velocity_accumulates_across_batches`
 Processes the same `file_save` event twice in two separate batches. Asserts `edits == 2` and `lines_added == 6` (velocity rows accumulate correctly across multiple commits).
 
 ---
 
-### Class `TestCrashSafety` — 2 tests
+### Class `TestCrashSafety` - 2 tests
 
 #### `test_uncommitted_batch_redelivered`
 First engine reads 2 events but never calls `commit()`, then closes. A second `ContextEngine` (same paths) reads again. Asserts the same 2 events are re-delivered. This confirms at-least-once delivery across process restarts.
 
 #### `test_duplicate_event_rows_on_redelivery`
-First engine processes 1 event (writes to DB) but never commits, then closes. A second engine reads and processes the same event again and commits. Asserts the `events` table has **2 rows** — one from each delivery. This documents the known at-least-once semantic: duplicate event rows are expected and acceptable at the current stage; Layer 3 is responsible for de-duplication.
+First engine processes 1 event (writes to DB) but never commits, then closes. A second engine reads and processes the same event again and commits. Asserts the `events` table has **2 rows** - one from each delivery. This documents the known at-least-once semantic: duplicate event rows are expected and acceptable at the current stage; Layer 3 is responsible for de-duplication.
 
 ---
 
-### Class `TestEmptyLog` — 3 tests
+### Class `TestEmptyLog` - 3 tests
 
 #### `test_no_events_returns_empty_batch`
 Creates an empty NDJSON file. Asserts `read_new_events()` returns `[]`.
@@ -605,15 +620,320 @@ Calls `_process_batch([])` directly. Asserts the `events` table is still empty (
 
 ---
 
-## Coverage Map
+## Layer 2 Coverage Map
 
 | Component | Unit test class(es) | Integration coverage |
 |---|---|---|
-| `models.py` — `CodeEvent` | `TestCodeEventParsing`, `TestMetadataAccessors` | All integration tests use `CodeEvent` |
-| `models.py` — `EventType` | `TestEventType` | All integration tests dispatch on `event_type` |
-| `models.py` — `Symbol` | `TestSymbol` | Symbol construction verified in `test_store.py` |
-| `tailer.py` — `Tailer` | All `test_tailer.py` classes | `TestCrashSafety`, `TestEmptyLog`, `TestIncrementalProcessing` |
-| `db/store.py` — `Store` | All `test_store.py` classes | `TestBasicPipeline`, `TestIncrementalProcessing` |
-| `indexer/symbol_index.py` — `SymbolIndexer` | All `test_symbol_index.py` classes | `TestBasicPipeline::test_file_save_populates_all_three_tables`, `test_typescript_symbols_indexed`, `test_symbols_updated_on_re_save` |
-| `velocity/tracker.py` — `VelocityTracker` | All `test_velocity.py` classes | `TestBasicPipeline`, `TestIncrementalProcessing::test_velocity_accumulates_across_batches` |
-| `main.py` — `ContextEngine` | — (orchestration layer) | All `test_integration.py` classes |
+| `models.py` - `CodeEvent` | `TestCodeEventParsing`, `TestMetadataAccessors` | All integration tests use `CodeEvent` |
+| `models.py` - `EventType` | `TestEventType` | All integration tests dispatch on `event_type` |
+| `models.py` - `Symbol` | `TestSymbol` | Symbol construction verified in `test_store.py` |
+| `tailer.py` - `Tailer` | All `test_tailer.py` classes | `TestCrashSafety`, `TestEmptyLog`, `TestIncrementalProcessing` |
+| `db/store.py` - `Store` | All `test_store.py` classes | `TestBasicPipeline`, `TestIncrementalProcessing` |
+| `indexer/symbol_index.py` - `SymbolIndexer` | All `test_symbol_index.py` classes | `TestBasicPipeline::test_file_save_populates_all_three_tables`, `test_typescript_symbols_indexed`, `test_symbols_updated_on_re_save` |
+| `velocity/tracker.py` - `VelocityTracker` | All `test_velocity.py` classes | `TestBasicPipeline`, `TestIncrementalProcessing::test_velocity_accumulates_across_batches` |
+| `main.py` - `ContextEngine` | - (orchestration layer) | All `test_integration.py` classes |
+
+---
+
+# Layer 3 - Insight Engine Tests
+
+## Layer 3 Overview
+
+> **115 tests � 6 modules � LLM always mocked (no API key required)**
+>
+> Run: `cd insight-engine && pytest tests/ -v`
+
+| Module | Area | Tests |
+|---|---|---|
+| `test_models.py`   | `Finding` Pydantic model, enums, aliases, round-trips | 18 |
+| `test_reader.py`   | `ContextReader` - all DB query methods, error handling | 21 |
+| `test_triggers.py` | All 3 triggers - fire / no-fire, severity, context data | 30 |
+| `test_writer.py`   | NDJSON append, cooldown suppression, helper internals | 14 |
+| `test_prompts.py`  | Context assembly, per-trigger prompts, title generation | 22 |
+| `test_main.py`     | `InsightEngine` construction, tick, resilience, lifecycle | 10 |
+
+---
+
+## Layer 3 Test Infrastructure
+
+### `conftest.py`
+
+Provides shared SQLite fixtures and DB-insert helpers:
+
+- **`context_db(tmp_path)`** - Creates a temp SQLite DB with the full Layer 2 schema
+  (events, symbols, velocity + WAL mode). Yields `(db_path, conn)`.
+- **`insert_velocity(conn, ...)`** - Insert a velocity row (file, workspace, date, edits).
+- **`insert_symbol(conn, ...)`** - Insert a symbol row (name, kind, lines, signature).
+- **`insert_event(conn, ...)`** - Insert an event row (type, timestamp, diff).
+
+---
+
+## Layer 3 `test_models.py` - 18 tests
+
+### `TestFindingCreation`
+
+#### `test_valid_finding_parses`
+Validates a minimal `Finding` dict. Asserts `file_path` and `workspace` are set.
+
+#### `test_id_auto_generated`
+Asserts `Finding.id` is a valid UUID4 string when not provided.
+
+#### `test_explicit_id_accepted`
+Passes a custom UUID. Asserts it is preserved unchanged.
+
+#### `test_camelcase_file_path_alias`
+Passes `filePath` (camelCase). Asserts `f.file_path` is populated correctly.
+
+#### `test_snake_case_file_path_accepted`
+Passes `file_path` (snake_case). Asserts `populate_by_name=True` works.
+
+#### `test_serialises_with_file_path_alias`
+Calls `model_dump(by_alias=True)`. Asserts `filePath` present, `file_path` absent.
+
+#### `test_missing_required_field_raises`
+Omits `workspace`. Asserts `ValidationError`.
+
+### `TestSeverityEnum`
+
+#### `test_info_value` / `test_warning_value` / `test_critical_value`
+Assert the three enum string values are `"info"`, `"warning"`, `"critical"`.
+
+#### `test_invalid_severity_raises`
+Passes `severity="fatal"`. Asserts `ValidationError`.
+
+#### `test_severity_is_string`
+Asserts `isinstance(Severity.WARNING, str)` - confirms `StrEnum` behaviour.
+
+### `TestTriggerNameEnum`
+
+#### `test_high_velocity_value` / `test_long_function_value` / `test_uncovered_value`
+Assert the string values for each `TriggerName` member.
+
+#### `test_trigger_accepts_string`
+Passes `"my_custom_trigger"` for `trigger`. Asserts it is accepted (field is plain `str`).
+
+### `TestFindingRoundTrip`
+
+#### `test_json_round_trip`
+Serialises to JSON then re-parses. Asserts `id`, `file_path`, and `severity` survive.
+
+#### `test_dict_round_trip_snake`
+Serialises with `model_dump()` (snake_case) then re-parses. Asserts `title` survives.
+
+---
+
+## `test_reader.py` - 21 tests
+
+### `TestContextReaderConstruction` (3 tests)
+
+#### `test_missing_db_raises_file_not_found`
+Non-existent path. Asserts `FileNotFoundError` with expected message.
+
+#### `test_opens_successfully`
+Opens temp DB. Asserts no exception.
+
+#### `test_close_is_idempotent`
+Calls `close()` twice. Asserts no exception on second call.
+
+### `TestGetAllWorkspaces` (3 tests)
+
+#### `test_empty_db_returns_empty`
+Empty DB. Asserts `[]`.
+
+#### `test_single_workspace`
+One velocity row. Asserts workspace name returned.
+
+#### `test_multiple_workspaces_deduplicated`
+Two workspaces. Asserts exactly two distinct names returned.
+
+### `TestGetHotFiles` (5 tests)
+
+#### `test_returns_files_above_threshold`
+Hot file (edits=7) and cold file (edits=2). Only hot file returned at threshold=5.
+
+#### `test_excludes_different_workspace`
+Data for `ws1`, query for `ws2`. Asserts empty.
+
+#### `test_returns_aggregated_metrics`
+Checks `total_edits`, `total_lines_added`, `total_lines_removed` in result dict.
+
+#### `test_ordered_by_edits_descending`
+Two hot files. Asserts higher-edit file comes first.
+
+#### `test_old_entries_excluded`
+Inserts `date="2000-01-01"`. Asserts excluded from today's window.
+
+### `TestGetSymbolsForFile` (3 tests)
+
+#### `test_empty_returns_empty` - No symbols. Asserts `[]`.
+#### `test_returns_symbols_ordered_by_start_line` - Asserts sorted by `start_line`.
+#### `test_scoped_to_file_path` - Two files. Asserts only target file's symbols returned.
+
+### `TestGetLongFunctions` (4 tests)
+
+#### `test_returns_functions_above_threshold` - 49-line function returned, 4-line not.
+#### `test_excludes_non_function_kinds` - `constant` kind (50 lines) excluded.
+#### `test_includes_method_and_class` - Both `class` and `method` kinds included.
+#### `test_ordered_by_line_count_desc` - Giant function comes before medium.
+
+### `TestGetRecentSavePaths` (4 tests)
+
+#### `test_returns_paths_saved_within_window` - `NOW_MS` event returned.
+#### `test_excludes_old_events` - 25-hour-old event excluded from 24-hour window.
+#### `test_excludes_non_save_events` - `file_change` event excluded.
+#### `test_deduplicated` - Two saves for same path - one result.
+
+### `TestGetRecentEventsForFile` (3 tests)
+
+#### `test_returns_events_for_file` - Event and diff are returned.
+#### `test_respects_limit` - 25 events, `limit=10` - exactly 10 returned.
+#### `test_excludes_other_files` - Event for `/other.py` not returned for `/f.py`.
+
+---
+
+## `test_triggers.py` - 30 tests
+
+### `TestHighVelocityTrigger` (9 tests)
+
+#### `test_fires_for_hot_file` - edits=7 - 5. One result.
+#### `test_does_not_fire_below_threshold` - edits=2 < 5. Empty.
+#### `test_returns_empty_on_missing_workspace` - No data. Empty.
+#### `test_severity_info_for_low_edits` - edits=5. `INFO`.
+#### `test_severity_warning_for_medium_edits` - edits=7. `WARNING`.
+#### `test_severity_critical_for_high_edits` - edits=10. `CRITICAL`.
+#### `test_context_data_contains_edits` - Checks `total_edits`, `total_lines_added`, `total_lines_removed`.
+#### `test_trigger_name_is_high_velocity` - Asserts `trigger_name == "high_velocity"`.
+#### `test_multiple_hot_files_all_returned` - Two hot files. Both in results.
+
+### `TestLongFunctionTrigger` (9 tests)
+
+#### `test_fires_for_long_function_in_saved_file` - 49-line function, file saved today. Fires.
+#### `test_does_not_fire_for_unsaved_file` - Symbol exists, not saved today. Empty.
+#### `test_does_not_fire_for_short_function` - 4-line function. Empty (threshold=20).
+#### `test_severity_info_for_medium_function` - 45 lines. `INFO`.
+#### `test_severity_warning_for_large_function` - 65 lines. `WARNING`.
+#### `test_severity_critical_for_giant_function` - 90 lines. `CRITICAL`.
+#### `test_one_result_per_file_longest_function` - Two long functions. One result with the longest.
+#### `test_context_data_has_function_meta` - Checks `function_name`, `start_line`, `end_line`, `line_count`, `signature`.
+#### `test_trigger_name_is_long_function` - Asserts `"long_function"`.
+
+### `TestUncoveredHighChurnTrigger` (12 tests)
+
+#### `test_fires_when_no_tests_saved` - Hot source file, no test file. Fires.
+#### `test_does_not_fire_when_test_saved` - `test_app.py` saved. Suppresses all.
+#### `test_does_not_fire_below_threshold` - edits=1 < 3. Empty.
+#### `test_does_not_fire_on_test_files_themselves` - Test file is the hot file. Excluded.
+#### `test_test_file_patterns_python` - `test_foo.py`, `foo_test.py` recognised.
+#### `test_test_file_patterns_typescript` - `.test.ts`, `.spec.ts`, `.test.tsx` recognised.
+#### `test_test_file_patterns_javascript` - `.test.js`, `.spec.js` recognised.
+#### `test_severity_is_warning` - Asserts `WARNING`.
+#### `test_trigger_name_is_uncovered_high_churn` - Asserts `"uncovered_high_churn"`.
+#### `test_context_data_has_total_edits` - `total_edits == 4`, `any_test_saved is False`.
+
+---
+
+## `test_writer.py` - 14 tests
+
+### `TestWriteFinding` (10 tests)
+
+#### `test_creates_file_if_not_exists` - Writes to a new directory. File created.
+#### `test_written_line_is_valid_json` - Line parses as JSON with correct `title`.
+#### `test_serialises_with_camelcase_alias` - `filePath` present, `file_path` absent.
+#### `test_appends_multiple_findings` - Two findings - two lines.
+#### `test_cooldown_suppresses_duplicate` - Same (file, trigger). Second call returns `False`.
+#### `test_cooldown_zero_always_writes` - `cooldown_seconds=0`. Both calls return `True`.
+#### `test_different_file_not_suppressed` - Different file paths. Both written.
+#### `test_different_trigger_not_suppressed` - Same file, different triggers. Both written.
+#### `test_returns_true_on_new_finding` - First finding. Returns `True`.
+#### `test_parent_dir_created_automatically` - Deep nested path. All parents created.
+
+### `TestIsOnCooldown` (4 tests)
+
+#### `test_empty_file_returns_false` - Empty file. Returns `False`.
+#### `test_old_finding_not_on_cooldown` - 2-hour-old finding, 1-hour cooldown. Returns `False`.
+#### `test_recent_finding_on_cooldown` - `timestamp=NOW_MS`, cooldown=3600. Returns `True`.
+#### `test_malformed_line_ignored` - `"not valid json"`. Returns `False`.
+
+---
+
+## `test_prompts.py` - 22 tests
+
+### `TestSystemPrompt` (2 tests)
+
+#### `test_is_non_empty_string` - `SYSTEM_PROMPT` is a string > 50 chars.
+#### `test_contains_expected_guidance` - "concise" or "short" present.
+
+### `TestFormatSymbols` (3 tests)
+
+#### `test_empty_returns_placeholder` - `"no symbols"` in output.
+#### `test_formats_symbol_correctly` - Name and line number appear.
+#### `test_caps_at_15` - 20 symbols - `"and 5 more"` in output.
+
+### `TestFormatDiffs` (3 tests)
+
+#### `test_empty_returns_placeholder` - `"no recent diffs"` in output.
+#### `test_formats_diff` - Added line appears.
+#### `test_truncates_long_diff` - 50-line diff - - 35 lines in output.
+
+### `TestAssembleContext` (4 tests)
+
+#### `test_returns_required_keys` - `file_name`, `file_path`, `workspace`, `symbols`, `recent_diffs` all present.
+#### `test_file_name_is_basename` - `/some/deep/path/app.py` - `"app.py"`.
+#### `test_symbols_populated_from_db` - Inserted symbol appears in `ctx["symbols"]`.
+#### `test_recent_diffs_from_events` - Inserted diff appears in `ctx["recent_diffs"]`.
+
+### `TestBuildUserPrompt` (4 tests)
+
+#### `test_high_velocity_prompt_contains_file` - `file_path` and `total_edits` in prompt.
+#### `test_long_function_prompt_contains_function_name` - `"process_data"` in prompt.
+#### `test_uncovered_churn_prompt` - `"test"` in prompt.
+#### `test_generic_fallback_for_unknown_trigger` - Custom trigger. Prompt non-empty.
+
+### `TestBuildTitle` (4 tests)
+
+#### `test_high_velocity_title` - Filename and edit count appear.
+#### `test_long_function_title` - Function name and line count appear.
+#### `test_uncovered_churn_title` - Filename and "coverage" or "churn" appear.
+#### `test_unknown_trigger_title` - Filename appears in fallback.
+
+---
+
+## `test_main.py` - 10 tests
+
+### `TestInsightEngineConstruction` (2 tests)
+
+#### `test_creates_successfully` - Constructs with valid DB path. No exception.
+#### `test_has_three_triggers` - `len(engine._triggers) == 3`.
+
+### `TestInsightEngineTick` (6 tests)
+
+#### `test_tick_on_empty_db_does_not_crash` - Empty DB. No exception.
+#### `test_tick_writes_finding_for_hot_file` - Velocity data inserted. `findings.ndjson` created.
+#### `test_finding_has_correct_fields` - Parsed JSON has `trigger`, `severity`, `title`, `body`.
+#### `test_tick_with_missing_db_does_not_crash` - Missing DB path. Logs warning, no raise.
+#### `test_long_function_trigger_fires` - Save event + 49-line symbol. `"long_function"` in findings.
+#### `test_openai_error_does_not_crash_tick` - `call_openai` raises. Tick handles gracefully.
+
+### `TestInsightEngineLifecycle` (2 tests)
+
+#### `test_stop_prevents_further_ticks` - `stop()` sets `_running = False`.
+#### `test_close_does_not_raise` - `close()` on fresh engine. No exception.
+
+---
+
+## Layer 3 Coverage Map
+
+| Component | Unit test class(es) | Notes |
+|---|---|---|
+| `models.py` - `Finding` | `TestFindingCreation`, `TestFindingRoundTrip` | All serialisation paths |
+| `models.py` - `Severity` | `TestSeverityEnum` | All values + invalid rejection |
+| `models.py` - `TriggerName` | `TestTriggerNameEnum` | All values; custom string passthrough |
+| `reader.py` - `ContextReader` | All `test_reader.py` classes | All 6 query methods; read-only mode |
+| `triggers/velocity.py` | `TestHighVelocityTrigger` | Threshold, severity ladder, multiple files |
+| `triggers/long_function.py` | `TestLongFunctionTrigger` | Save-gating, dedup, severity ladder |
+| `triggers/uncovered.py` | `TestUncoveredHighChurnTrigger` | Test-file patterns, workspace-wide check |
+| `writer.py` - `write_finding` | `TestWriteFinding` | Append, cooldown, parent dir creation |
+| `writer.py` - `_is_on_cooldown` | `TestIsOnCooldown` | Window maths, malformed lines |
+| `llm/prompts.py` | All `test_prompts.py` classes | Assembly + all trigger-specific templates |
+| `main.py` - `InsightEngine` | All `test_main.py` classes | LLM always mocked |
+| `llm/client.py` | — | Integration-level only (mocked in all tests) |
